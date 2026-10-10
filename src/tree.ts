@@ -1,4 +1,4 @@
-import { App, TFile, getLinkpath } from 'obsidian';
+import { App, TFile, getLinkpath, setIcon } from 'obsidian';
 
 export class TreeGroup {
     constructor(
@@ -12,6 +12,7 @@ export class TreeGroup {
 
 export const vaultGroup = new TreeGroup('vault', 'Vault', 'vault');
 export const orphanGroup = new TreeGroup('orphans', 'Orphans', 'circle-dot-dashed');
+const iconCache = new Map<string, boolean>();
 
 export interface TreeNode {
     item: TFile | TreeGroup;
@@ -93,7 +94,7 @@ export function resolveLink(app: App, entry: unknown, fromPath: string): TFile |
     if (wiki) {
         linkpath = (wiki[1] ?? '').split('|')[0]?.split('#')[0] ?? '';
     } else if (md) {
-        let dest =(md[1] ?? '').trim();
+        let dest = (md[1] ?? '').trim();
         if (dest.startsWith('<') && dest.endsWith('>')) dest = dest.slice(1, -1);
         if (/^(https?|mailto|obsidian|file):/i.test(dest)) return null;
         try {
@@ -109,6 +110,30 @@ export function resolveLink(app: App, entry: unknown, fromPath: string): TFile |
     linkpath = linkpath.trim();
     if (!linkpath) return null;
     return app.metadataCache.getFirstLinkpathDest(linkpath, fromPath);
+}
+
+function iconExists(name: string): boolean {
+    let ok = iconCache.get(name);
+    if (ok === undefined) {
+        const el = document.createElement('div');
+        setIcon(el, name);
+        ok = el.childElementCount > 0;
+        iconCache.set(name, ok);
+    }
+    return ok;
+}
+
+function frontmatterIcon(app: App, file: TFile): string | null {
+    const raw: unknown = app.metadataCache.getFileCache(file)?.frontmatter?.icon;
+    if (typeof raw !== 'string') return null;
+
+    const name = raw
+        .trim()
+        .replace(/^Li/, '')
+        .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+        .toLowerCase();
+
+    return name && iconExists(name) ? name : null;
 }
 
 function buildForest(
@@ -146,10 +171,7 @@ function buildForest(
         ancestors.add(file.path);
         visited.add(file.path);
 
-        let icon = app.metadataCache.getFileCache(file)?.frontmatter?.icon
-            ?.replace(/^Li/, '')
-            .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-            .toLowerCase() ?? null;
+        const icon = frontmatterIcon(app, file);
 
         const children = (childrenByParent.get(file.path) ?? [])
             .filter((child) => !ancestors.has(child.path))
