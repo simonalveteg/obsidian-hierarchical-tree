@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { setIcon, type TFile } from 'obsidian';
 	import type { TreeNode } from '../tree';
+    import { TreeGroup, nodeKey, nodeLabel, nodeFile } from '../tree';
 	import TreeItem from './TreeItem.svelte';
 
 	let {
@@ -18,7 +19,8 @@
 	let expanded = $state(false);
 	const hasChildren = $derived(node.children.length > 0);
 	const childrenCount = $derived(node.children.length || '');
-	const isSelected = $derived(node.file?.path === selectedPath);
+    const isGroup = $derived(node.item instanceof TreeGroup);
+	const isSelected = $derived(isGroup ? false : nodeKey(node) === selectedPath);
 
 	// Svelte action: runs when the element is created.
 	function icon(el: HTMLElement) {
@@ -33,7 +35,7 @@
 	function onKeydown(e: KeyboardEvent) {
 		if (e.key === 'Enter' || e.key === ' ') {
 			e.preventDefault();
-			onOpen(node.file);
+			onOpen(nodeFile(node));
 		} else if (e.key === 'ArrowRight' && hasChildren) {
 			e.preventDefault();
 			expanded = true;
@@ -54,7 +56,7 @@
 		class:is-selected={isSelected}
 		aria-expanded={hasChildren ? expanded : undefined}
 		style:--level={level - 1}
-		onclick={() => onOpen(node.file)}
+		onclick={() => onOpen(nodeFile(node))}
 		onkeydown={onKeydown}
 	>
 		{#if hasChildren}
@@ -69,13 +71,13 @@
 			<span class="note-tree-chevron"></span>
 		{/if}
 
-		<span class="note-tree-name">{node.file?.basename ?? node.label}</span>
+		<span class="note-tree-name">{nodeLabel(node)}</span>
 		<span class="note-tree-count" aria-hidden="true"> {childrenCount}</span>
 	</div>
 
 	{#if hasChildren && expanded}
 		<div role="group">
-			{#each node.children as child (child.file?.path ?? node.label)}
+			{#each node.children as child (nodeKey(child))}
 				<TreeItem
 					node={child}
 					{onOpen}

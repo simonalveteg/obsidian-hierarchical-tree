@@ -1,6 +1,6 @@
 import { ItemView, WorkspaceLeaf, TFile, debounce } from 'obsidian';
 import { mount, unmount } from 'svelte';
-import { buildTree } from '../tree';
+import { buildRoots } from '../tree';
 import { TreeStore } from './Store.svelte';
 import Tree from './Tree.svelte';
 
@@ -12,7 +12,7 @@ export class NoteTreeView extends ItemView {
 
     private rebuild = debounce(
         () => {
-            this.store.roots = buildTree(this.app);
+            this.store.roots = buildRoots(this.app, []);
         },
         300,
         true,
@@ -36,7 +36,7 @@ export class NoteTreeView extends ItemView {
 
     async onOpen() {
         this.contentEl.empty();
-        this.store.roots = buildTree(this.app);
+        this.store.roots = buildRoots(this.app, []);
         this.store.selectedPath = this.app.workspace.getActiveFile()?.path ?? null;
 
         this.component = mount(Tree, {

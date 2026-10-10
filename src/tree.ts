@@ -1,9 +1,34 @@
 import { App, TFile, getLinkpath } from 'obsidian';
 
+export class TreeGroup {
+    constructor(
+        public readonly id: string,
+        public readonly label: string,
+    ) {}
+}
+
+export const orphanGroup = new TreeGroup('orphans', 'Orphans');
+
+export interface CustomTree {
+    group: TreeGroup;
+    build: (app: App) => TreeNode[];
+}
+
 export interface TreeNode {
-    file: TFile | null;
-    label?: string;
+    item: TFile | TreeGroup;
     children: TreeNode[];
+}
+
+export function nodeKey(node: TreeNode): string {
+    return node.item instanceof TreeGroup ? `group:${node.item.id}` : node.item.path;
+}
+
+export function nodeLabel(node: TreeNode): string {
+    return node.item instanceof TreeGroup ? node.item.label : node.item.basename;
+}
+
+export function nodeFile(node: TreeNode): TFile | null {
+    return node.item instanceof TFile ? node.item : null;
 }
 
 function compareFiles(a: TFile, b: TFile): number {
@@ -26,7 +51,23 @@ export function getParents(app: App, file: TFile): TFile[] {
     return [...parents.values()];
 }
 
-export function buildTree(app: App): TreeNode[] {
+export function buildRoots(app: App, custom: CustomTree[]): TreeNode[] {
+    const { nodes, orphans } = buildTree(app);
+
+    const roots = [...nodes];
+
+    for (const { group, build } of custom) {
+        roots.push({ item: group, children: build(app) });
+    }
+
+    if (orphans.length > 0) {
+        roots.push({ item: orphanGroup, children: orphans });
+    }
+
+    return roots;
+}
+
+export function buildTree(app: App): { nodes: TreeNode[]; orphans: TreeNode[] } {
     // Sorted once up front, so every child list below is already sorted.
     const files = app.vault.getMarkdownFiles().sort(compareFiles);
 
@@ -63,7 +104,7 @@ export function buildTree(app: App): TreeNode[] {
             .map((child) => buildNode(child));
 
         ancestors.delete(file.path);
-        return { file, children };
+        return { item: file, children };
     };
 
     const nodes: TreeNode[] = [];
@@ -81,17 +122,13 @@ export function buildTree(app: App): TreeNode[] {
         }
     }
 
-    if (orphans.length > 0) {
-        nodes.push({ file: null, label: "Orphans", children: orphans });
-    }
-
-    return nodes;
+    return { nodes, orphans };
 }
 
 /** Debug helper. Do not JSON.stringify the tree: TFile.parent is circular. */
 export function printTree(nodes: TreeNode[], depth = 0): void {
     for (const node of nodes) {
-        console.log('  '.repeat(depth) + (node.file?.basename ?? node.label));
+        console.log('  '.repeat(depth) + nodeLabel(node));
         printTree(node.children, depth + 1);
     }
 }
