@@ -10,7 +10,7 @@
 		level,
 	}: {
 		node: TreeNode;
-		onOpen: (file: TFile) => void;
+		onOpen: (file: TFile | null) => void;
 		selectedPath: string | null;
 		level: number;
 	} = $props();
@@ -18,7 +18,7 @@
 	let expanded = $state(false);
 	const hasChildren = $derived(node.children.length > 0);
 	const childrenCount = $derived(node.children.length || '');
-	const isSelected = $derived(node.file.path === selectedPath);
+	const isSelected = $derived(node.file?.path === selectedPath);
 
 	// Svelte action: runs when the element is created.
 	function icon(el: HTMLElement) {
@@ -69,13 +69,13 @@
 			<span class="note-tree-chevron"></span>
 		{/if}
 
-		<span class="note-tree-name">{node.file.basename}</span>
+		<span class="note-tree-name">{node.file?.basename ?? node.label}</span>
 		<span class="note-tree-count" aria-hidden="true"> {childrenCount}</span>
 	</div>
 
 	{#if hasChildren && expanded}
 		<div role="group">
-			{#each node.children as child (child.file.path)}
+			{#each node.children as child (child.file?.path ?? node.label)}
 				<TreeItem
 					node={child}
 					{onOpen}

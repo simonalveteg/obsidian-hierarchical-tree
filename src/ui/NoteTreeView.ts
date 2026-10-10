@@ -10,7 +10,6 @@ export class NoteTreeView extends ItemView {
     private store = new TreeStore();
     private component: ReturnType<typeof mount> | null = null;
 
-    // Trailing-edge debounce: waits until events stop for 300 ms.
     private rebuild = debounce(
         () => {
             this.store.roots = buildTree(this.app);
