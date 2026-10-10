@@ -1,5 +1,5 @@
 import { Plugin, WorkspaceLeaf } from 'obsidian';
-import { NoteTreeView, VIEW_TYPE_NOTE_TREE } from './ui/NoteTreeView';
+import { NoteTreeView, VIEW_TYPE_NOTE_TREE } from './ui/view';
 
 export default class NoteHierarchy extends Plugin {
 

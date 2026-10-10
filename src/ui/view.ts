@@ -2,6 +2,7 @@ import { ItemView, WorkspaceLeaf, TFile, debounce, getAllTags, Menu } from 'obsi
 import { mount, tick, unmount } from 'svelte';
 import { ancestorKeys, buildRoots, collectFiles, nodeFile, nodeKey, TreeGroup, type TreeNode } from '../tree';
 import { SelectionStore, TreeStore } from './Store.svelte';
+import { canDrop, tryDrop } from '../reparent';
 import Tree from './Tree.svelte';
 
 interface MountedTree {
@@ -92,6 +93,8 @@ export class NoteTreeView extends ItemView {
                             void this.app.workspace.getLeaf(false).openFile(file);
                         },
                         onContextMenu: (node: TreeNode, e: MouseEvent) => this.showMenu(node, e),
+                        canDrop: (candidate: TFile, target: TFile, parent: TFile | null, add: boolean) => this.canDrop(candidate, target, parent, add),
+                        tryDrop: (candidate: TFile, target: TFile, fromParent: TFile | null, add: boolean) => this.tryDrop(candidate, target, fromParent, add),
                     },
                 });
                 tree = { store, el, component };
@@ -131,6 +134,14 @@ export class NoteTreeView extends ItemView {
             : top;
 
         scrollable.scrollTo({ top: target });
+    }
+
+    private canDrop(candidate: TFile, target: TFile, parent: TFile | null, add: boolean): boolean {
+        return canDrop(this.app, candidate, target, parent, add);
+    }
+
+    private async tryDrop(candidate: TFile, target: TFile, fromParent: TFile | null, add: boolean): Promise<boolean> {
+        return tryDrop(this.app, candidate, target, fromParent, add);
     }
 
     private async scrollToSelected() {

@@ -73,6 +73,44 @@ export function collectFiles(node: TreeNode): TFile[] {
     return [...(own ? [own] : []), ...node.children.flatMap(collectFiles)];
 }
 
+export function isDescendant(app: App, candidate: TFile, ancestor: TFile): boolean {
+    const parents = getParents(app, candidate);
+    for (const parent of parents) {
+        if (parent.path === ancestor.path) return true;
+        if (isDescendant(app, parent, ancestor)) return true;
+    }
+    return false;
+}
+
+export function resolveLink(app: App, entry: unknown, fromPath: string): TFile | null {
+    if (typeof entry !== 'string') return null;
+    const text = entry.trim();
+
+    let linkpath: string;
+    const wiki = text.match(/^\[\[([^\]]+)\]\]$/);
+    const md = text.match(/^\[[^\]]*\]\((.+)\)$/);
+
+    if (wiki) {
+        linkpath = (wiki[1] ?? '').split('|')[0]?.split('#')[0] ?? '';
+    } else if (md) {
+        let dest =(md[1] ?? '').trim();
+        if (dest.startsWith('<') && dest.endsWith('>')) dest = dest.slice(1, -1);
+        if (/^(https?|mailto|obsidian|file):/i.test(dest)) return null;
+        try {
+            dest = decodeURIComponent(dest);
+        } catch {
+            // malformed escape, use the raw string
+        }
+        linkpath = dest.split('#')[0] ?? '';
+    } else {
+        return null;
+    }
+
+    linkpath = linkpath.trim();
+    if (!linkpath) return null;
+    return app.metadataCache.getFirstLinkpathDest(linkpath, fromPath);
+}
+
 function buildForest(
     app: App,
     files: TFile[],
@@ -129,7 +167,6 @@ function buildForest(
         (splitOrphans && node.children.length === 0 ? orphans : nodes).push(node);
     }
 
-    // Notes only reachable through cycles have no root: promote them.
     for (const file of sorted) {
         if (!visited.has(file.path)) nodes.push(buildNode(file));
     }
