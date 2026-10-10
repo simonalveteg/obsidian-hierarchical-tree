@@ -19,6 +19,7 @@ export class NoteTreeView extends ItemView {
     private fleeting = new TreeGroup(
         'fleeting',
         'Fleeting',
+        'leaf',
         (file) => {
             const cache = this.app.metadataCache.getFileCache(file);
             return cache ? (getAllTags(cache) ?? []).includes('#note/fleeting') : false;

@@ -4,17 +4,19 @@ export class TreeGroup {
     constructor(
         public readonly id: string,
         public readonly label: string,
+        public readonly icon: string | null = null,
         public readonly filter: (file: TFile) => boolean = () => true,
         public readonly compare: (a: TFile, b: TFile) => number = compareFiles,
     ) { }
 }
 
-export const vaultGroup = new TreeGroup('vault', 'Vault');
-export const orphanGroup = new TreeGroup('orphans', 'Orphans');
+export const vaultGroup = new TreeGroup('vault', 'Vault', 'vault');
+export const orphanGroup = new TreeGroup('orphans', 'Orphans', 'circle-dot-dashed');
 
 export interface TreeNode {
     item: TFile | TreeGroup;
     children: TreeNode[];
+    icon: string | null;
 }
 
 export function nodeKey(node: TreeNode): string {
@@ -84,12 +86,14 @@ function buildForest(
         ancestors.add(file.path);
         visited.add(file.path);
 
+        let icon = app.metadataCache.getFileCache(file)?.frontmatter?.icon ?? null;
+
         const children = (childrenByParent.get(file.path) ?? [])
             .filter((child) => !ancestors.has(child.path))
             .map(buildNode);
 
         ancestors.delete(file.path);
-        return { item: file, children };
+        return { item: file, children, icon };
     };
 
     const nodes: TreeNode[] = [];
@@ -113,12 +117,12 @@ export function buildRoots(app: App, custom: TreeGroup[] = []): TreeNode[] {
     const roots: TreeNode[] = [];
 
     const main = buildForest(app, all, vaultGroup.compare, true);
-    if (main.nodes.length > 0) roots.push({ item: vaultGroup, children: main.nodes });
-    if (main.orphans.length > 0) roots.push({ item: orphanGroup, children: main.orphans });
+    if (main.nodes.length > 0) roots.push({ item: vaultGroup, children: main.nodes, icon: vaultGroup.icon });
+    if (main.orphans.length > 0) roots.push({ item: orphanGroup, children: main.orphans, icon: orphanGroup.icon });
 
     for (const group of custom) {
         const { nodes } = buildForest(app, all.filter(group.filter), group.compare, false);
-        if (nodes.length > 0) roots.push({ item: group, children: nodes });
+        if (nodes.length > 0) roots.push({ item: group, children: nodes, icon: group.icon });
     }
 
     return roots;

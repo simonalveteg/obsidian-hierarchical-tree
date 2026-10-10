@@ -30,12 +30,19 @@
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+.note-tree-icon {
     width: var(--icon-s);
     height: var(--icon-s);
     color: var(--text-muted);
 }
 
-.note-tree-chevron svg {
+.note-tree-user-icon {
+    margin-inline-end: var(--size-4-1);
+}
+
+.note-tree-icon svg {
     width: 100%;
     height: 100%;
     transition: transform 100ms ease-in-out;

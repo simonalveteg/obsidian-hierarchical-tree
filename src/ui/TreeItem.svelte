@@ -61,15 +61,19 @@
 	>
 		{#if hasChildren}
 			<span
-				class="note-tree-chevron"
+				class="note-tree-chevron note-tree-icon"
 				class:is-expanded={expanded}
 				aria-hidden="true"
 				onclick={toggle}
 				use:icon
 			></span>
 		{:else}
-			<span class="note-tree-chevron"></span>
+			<span class="note-tree-chevron note-tree-icon"></span>
 		{/if}
+
+        {#if node.icon}
+            <span class="note-tree-user-icon note-tree-icon" aria-hidden="true" use:setIcon={node.icon}></span>
+        {/if}
 
 		<span class="note-tree-name">{nodeLabel(node)}</span>
 		<span class="note-tree-count" aria-hidden="true"> {childrenCount}</span>
