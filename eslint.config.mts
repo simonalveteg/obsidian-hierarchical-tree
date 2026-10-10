@@ -18,6 +18,7 @@ export default defineConfig(
 		languageOptions: {
 			globals: {
 				...globals.browser,
+				$state: 'readonly',
 			},
 			parserOptions: {
 				projectService: {

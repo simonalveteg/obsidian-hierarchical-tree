@@ -1,52 +1,43 @@
 <script lang="ts">
-	import type { TFile } from 'obsidian';
-	import type { TreeStore } from './store.svelte';
-	import TreeItem from './TreeItem.svelte';
-	import { nodeKey } from '../tree';
-	import type { TreeNode } from '../tree';
+    import { setContext, tick } from 'svelte';
+    import type { TreeStore } from './store.svelte';
+    import TreeItem from './TreeItem.svelte';
+    import { TREE_CONTEXT, type TreeContext } from './treeContext';
 
-	let {
-		store,
-		onOpen,
-		onContextMenu,
-		canDrop,
-		tryDrop,
-	}: {
-		store: TreeStore;
-		onOpen: (file: TFile | null) => void;
-		onContextMenu: (node: TreeNode, e: MouseEvent) => void;
-		canDrop: (
-			candidate: TFile,
-			target: TFile,
-			parent: TFile | null,
-			add: boolean,
-		) => boolean;
-		tryDrop: (
-			candidate: TFile,
-			target: TFile,
-			fromParent: TFile | null,
-			add: boolean,
-		) => Promise<boolean>;
-	} = $props();
+    let { store, actions } = $props<{
+        store: TreeStore;
+        actions: Omit<TreeContext, 'store'>;
+    }>();
+    let treeElement: HTMLDivElement;
 
-	const selection = $derived(store.selection);
-	const selectedPath = $derived(store.selection.selectedPath);
-	const expandedKeys = $derived(store.selection.expanded);
+    setContext<() => TreeContext>(TREE_CONTEXT, () => ({ store, ...actions }));
+
+    $effect(() => {
+        store.selectedKey;
+        store.roots;
+        void revealSelected();
+    });
+
+    async function revealSelected() {
+        await tick();
+        const row = treeElement?.querySelector<HTMLElement>(
+            '.note-tree-row.is-selected',
+        );
+        const scrollable = treeElement?.parentElement;
+        if (!row || !scrollable) return;
+        const rowRect = row.getBoundingClientRect();
+        const boxRect = scrollable.getBoundingClientRect();
+        const top = rowRect.top - boxRect.top + scrollable.scrollTop;
+        const target =
+            rowRect.height <= boxRect.height
+                ? top - boxRect.height / 2 + rowRect.height / 2
+                : top;
+        scrollable.scrollTo({ top: target });
+    }
 </script>
 
-<div class="note-tree" role="tree">
-	{#each store.roots as node (nodeKey(node))}
-		<TreeItem
-			{node}
-			{onOpen}
-			{onContextMenu}
-			{canDrop}
-			{tryDrop}
-			{selection}
-			parent={null}
-			{selectedPath}
-			{expandedKeys}
-			level={1}
-		/>
-	{/each}
+<div class="note-tree" role="tree" bind:this={treeElement}>
+    {#each store.roots as node (node.key)}
+        <TreeItem {node} parent={null} level={1} />
+    {/each}
 </div>

@@ -25,7 +25,10 @@
     outline-offset: -2px;
 }
 
-.note-tree-chevron {}
+.note-tree-item:focus-visible > .note-tree-row {
+    outline: 2px solid var(--interactive-accent);
+    outline-offset: -2px;
+}
 
 .note-tree-icon {
     flex: none;
@@ -71,7 +74,10 @@
 }
 
 .note-tree-row.is-selected {
-    background-color: var(--nav-item-background-active, var(--background-modifier-hover));
+    background-color: var(
+        --nav-item-background-active,
+        var(--background-modifier-hover)
+    );
 }
 
 .note-tree-row.note-tree-drop-target {

@@ -1,27 +1,34 @@
-import { ItemView, WorkspaceLeaf, TFile, debounce, getAllTags, Menu } from 'obsidian';
-import { mount, tick, unmount } from 'svelte';
-import { ancestorKeys, buildRoots, collectFiles, nodeFile, nodeKey, TreeGroup, type TreeNode } from '../tree';
-import { SelectionStore, TreeStore } from './Store.svelte';
-import { canDrop, tryDrop } from '../reparent';
-import { IconModal } from './IconModal';
+import { ItemView, WorkspaceLeaf, TFile, debounce, getAllTags } from 'obsidian';
+import { mount, unmount } from 'svelte';
+import { buildParentIndex, type ParentIndex } from '../core/parents';
+import { buildRoots, type TreeGroup, type TreeNode } from '../core/tree';
+import { addChildNote } from '../actions/createNote';
+import { canDrop, tryDrop } from '../actions/reparent';
+import type { NoteHierarchySettings } from '../settings';
+import { createGroups } from '../groups';
+import { TreeStore } from './store.svelte';
+import { showMenu } from './menu';
+import { frontmatterIcon } from './icons';
 import Tree from './Tree.svelte';
-
-interface MountedTree {
-    store: TreeStore;
-    el: HTMLElement;
-    component: ReturnType<typeof mount>;
-}
 
 export const VIEW_TYPE_NOTE_TREE = 'note-tree-view';
 
+type MountedTree = ReturnType<typeof mount>;
+
 export class NoteTreeView extends ItemView {
+    private readonly store = new TreeStore();
+    private readonly groups: TreeGroup[];
+    private component: MountedTree | null = null;
+    private parentIndex: ParentIndex = new Map();
+    private signatures = new Map<string, string>();
+    private rebuild = debounce(() => this.refreshTrees(), 300, true);
 
-    private selection = new SelectionStore();
-    private trees = new Map<string, MountedTree>();
-    private lastNodes: TreeNode[] = [];
-
-    constructor(leaf: WorkspaceLeaf) {
+    constructor(
+        leaf: WorkspaceLeaf,
+        private readonly settings: NoteHierarchySettings,
+    ) {
         super(leaf);
+        this.groups = createGroups(this.app, settings);
     }
 
     getViewType() {
@@ -38,142 +45,119 @@ export class NoteTreeView extends ItemView {
 
     async onOpen() {
         this.contentEl.empty();
-        this.selection.selectedPath = this.app.workspace.getActiveFile()?.path ?? null;
-        this.rebuild();
+        this.store.selectedPath =
+            this.app.workspace.getActiveFile()?.path ?? null;
+        this.component = mount(Tree, {
+            target: this.contentEl,
+            props: {
+                store: this.store,
+                actions: {
+                    onOpen: (file: TFile) => {
+                        void this.app.workspace.getLeaf(false).openFile(file);
+                    },
+                    onContextMenu: (node: TreeNode, event: MouseEvent) => {
+                        showMenu(this.app, node, event, (parent) => {
+                            void addChildNote(
+                                this.app,
+                                parent,
+                                this.settings.parentKey,
+                            ).then((file) =>
+                                this.app.workspace
+                                    .getLeaf(false)
+                                    .openFile(file),
+                            );
+                        });
+                    },
+                    canDrop: (
+                        candidate: TFile,
+                        target: TFile,
+                        parent: TFile | null,
+                        add: boolean,
+                    ) =>
+                        canDrop(
+                            this.parentIndex,
+                            candidate,
+                            target,
+                            parent,
+                            add,
+                        ),
+                    tryDrop: (
+                        candidate: TFile,
+                        target: TFile,
+                        parent: TFile | null,
+                        add: boolean,
+                    ) =>
+                        tryDrop(
+                            this.app,
+                            this.parentIndex,
+                            candidate,
+                            target,
+                            parent,
+                            add,
+                            this.settings.parentKey,
+                        ),
+                },
+            },
+        });
 
-        const refresh = () => this.rebuild();
-        this.registerEvent(this.app.metadataCache.on('changed', refresh));
-        this.registerEvent(this.app.metadataCache.on('resolved', refresh));
-        this.registerEvent(this.app.vault.on('rename', refresh));
-        this.registerEvent(this.app.vault.on('delete', refresh));
-        this.registerEvent(this.app.workspace.on('file-open', (file) => {
-            this.selection.selectedPath = file?.path ?? null;
-            this.reveal(this.selection.selectedPath ?? '');
-        }),
+        this.refreshTrees();
+        this.registerEvent(
+            this.app.metadataCache.on('changed', (file) =>
+                this.refreshIfRelevant(file),
+            ),
+        );
+        this.registerEvent(
+            this.app.metadataCache.on('resolved', () => this.rebuild()),
+        );
+        this.registerEvent(this.app.vault.on('rename', () => this.rebuild()));
+        this.registerEvent(this.app.vault.on('delete', () => this.rebuild()));
+        this.registerEvent(
+            this.app.workspace.on('file-open', (file) =>
+                this.store.reveal(file?.path ?? ''),
+            ),
         );
     }
 
     async onClose() {
-        for (const tree of this.trees.values()) void unmount(tree.component);
-        this.trees.clear();
-    }
-
-    private fleeting = new TreeGroup(
-        'fleeting',
-        'Fleeting',
-        'leaf',
-        (file) => {
-            const cache = this.app.metadataCache.getFileCache(file);
-            return cache ? (getAllTags(cache) ?? []).includes('#note/fleeting') : false;
-        },
-        (a, b) => b.stat.mtime - a.stat.mtime,
-    );
-    private groups = [this.fleeting]
-
-    private rebuild = debounce(() => this.refreshTrees(), 300, true);
-
-    private async refreshTrees() {
-        const nodes = buildRoots(this.app, this.groups);
-        this.lastNodes = nodes;
-        const seen = new Set<string>();
-        const order: HTMLElement[] = [];
-
-        for (const node of nodes) {
-            const key = nodeKey(node);
-            seen.add(key);
-
-            let tree = this.trees.get(key);
-            if (!tree) {
-                const store = new TreeStore(this.selection);
-                const el = this.contentEl.createDiv({ cls: 'note-tree-group' });
-                const component = mount(Tree, {
-                    target: el,
-                    props: {
-                        store,
-                        onOpen: (file: TFile) => {
-                            void this.app.workspace.getLeaf(false).openFile(file);
-                        },
-                        onContextMenu: (node: TreeNode, e: MouseEvent) => this.showMenu(node, e),
-                        canDrop: (candidate: TFile, target: TFile, parent: TFile | null, add: boolean) => this.canDrop(candidate, target, parent, add),
-                        tryDrop: (candidate: TFile, target: TFile, fromParent: TFile | null, add: boolean) => this.tryDrop(candidate, target, fromParent, add),
-                    },
-                });
-                tree = { store, el, component };
-                this.trees.set(key, tree);
-            }
-
-            tree.store.roots = [node];
-            order.push(tree.el);
+        if (this.component) {
+            await unmount(this.component);
+            this.component = null;
         }
-
-        for (const [key, tree] of this.trees) {
-            if (seen.has(key)) continue;
-            void unmount(tree.component);
-            tree.el.remove();
-            this.trees.delete(key);
-        }
-
-        this.contentEl.append(...order);
-        this.reveal(this.selection.selectedPath ?? '');
     }
 
-    private reveal(path: string) {
-        for (const key of ancestorKeys(this.lastNodes, path)) {
-            this.selection.expanded.add(key);
-        }
-        this.scrollToSelected();
+    private metadataSignature(file: TFile): string {
+        const cache = this.app.metadataCache.getFileCache(file);
+        return JSON.stringify([
+            cache?.frontmatter?.[this.settings.parentKey],
+            cache?.frontmatter?.icon,
+            cache ? (getAllTags(cache) ?? []) : [],
+        ]);
     }
 
-    private scrollIntoMiddle(el: HTMLElement) {
-        const scrollable = this.contentEl;
-        const elRect = el.getBoundingClientRect();
-        const boxRect = scrollable.getBoundingClientRect();
-
-        const top = elRect.top - boxRect.top + scrollable.scrollTop;
-        const target = elRect.height <= boxRect.height
-            ? top - boxRect.height / 2 + elRect.height / 2
-            : top;
-
-        scrollable.scrollTo({ top: target });
+    private refreshIfRelevant(file: TFile) {
+        const signature = this.metadataSignature(file);
+        if (this.signatures.get(file.path) !== signature) this.rebuild();
     }
 
-    private canDrop(candidate: TFile, target: TFile, parent: TFile | null, add: boolean): boolean {
-        return canDrop(this.app, candidate, target, parent, add);
-    }
-
-    private async tryDrop(candidate: TFile, target: TFile, fromParent: TFile | null, add: boolean): Promise<boolean> {
-        return tryDrop(this.app, candidate, target, fromParent, add);
-    }
-
-    private async scrollToSelected() {
-        await tick();
-        const row = this.contentEl.querySelector<HTMLElement>('.note-tree-row.is-selected');
-        if (row) this.scrollIntoMiddle(row);
-    }
-
-    private showMenu(node: TreeNode, e: MouseEvent) {
-        const menu = new Menu();
-        const file = nodeFile(node);
-
-        if (file) {
-            menu.addItem((i) => i.setTitle('Add new note').setIcon('plus').onClick(() => this.addChildNote(file)));
-            menu.addItem((i) => i.setTitle('Manage icon').setIcon('image').onClick(() => new IconModal(this.app, file).open()));
-            menu.addSeparator();
-            menu.addItem((i) => i.setTitle('Delete note').setIcon('trash'));
-            menu.addItem((i) => i.setTitle('Delete note with children').setIcon('trash'));
-            menu.addItem((i) => i.setTitle('Share note').setIcon('share'));
-            menu.addItem((i) => i.setTitle('Share note with children').setIcon('share'));
-        } else if (node.item instanceof TreeGroup) {
-            const group = node.item;
-            menu.addItem((i) => i.setTitle('Edit group filter').setIcon('filter'));
-        }
-
-        menu.showAtMouseEvent(e);
-    }
-
-    private async addChildNote(parent: TFile) {
-        const path = parent.parent?.path ?? '';
-        const file = await this.app.vault.create(`${path}/New Note.md`, `---\nup: ["[[${parent.basename}]]"]\n---\n`);
-        await this.app.workspace.getLeaf(false).openFile(file);
+    private refreshTrees() {
+        const files = this.app.vault.getMarkdownFiles();
+        this.parentIndex = buildParentIndex(
+            this.app,
+            files,
+            this.settings.parentKey,
+        );
+        const icons = new Map(
+            files.map((file) => [file.path, frontmatterIcon(this.app, file)]),
+        );
+        this.signatures = new Map(
+            files.map((file) => [file.path, this.metadataSignature(file)]),
+        );
+        this.store.roots = buildRoots(
+            files,
+            this.parentIndex,
+            icons,
+            this.groups,
+        );
+        this.store.reveal(this.store.selectedPath ?? '');
     }
 }
