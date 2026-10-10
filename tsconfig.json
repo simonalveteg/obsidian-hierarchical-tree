@@ -11,9 +11,13 @@
 		"moduleResolution": "node",
 		"isolatedModules": true,
 		"skipLibCheck": true,
+		"verbatimModuleSyntax": true,
 		"forceConsistentCasingInFileNames": true,
 		"allowSyntheticDefaultImports": true,
 		"lib": ["ES2021", "DOM"]
 	},
-	"include": ["src/**/*.ts"]
+	"include": [
+		"**/*.ts",
+		"**/*.svelte"
+	]
 }
