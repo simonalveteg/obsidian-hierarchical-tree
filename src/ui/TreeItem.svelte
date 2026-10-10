@@ -91,7 +91,7 @@
 			></span>
 		{/if}
 
-		<span class="note-tree-name">{nodeLabel(node)}</span>
+		<span class="note-tree-name" class:is-bold={level === 1}>{nodeLabel(node)}</span>
 		<span class="note-tree-count" aria-hidden="true"> {childrenCount}</span>
 	</div>
 
