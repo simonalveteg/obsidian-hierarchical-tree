@@ -26,13 +26,13 @@
 }
 
 .note-tree-chevron {
+}
+
+.note-tree-icon {
     flex: none;
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-.note-tree-icon {
     width: var(--icon-s);
     height: var(--icon-s);
     color: var(--text-muted);
