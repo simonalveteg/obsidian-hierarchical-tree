@@ -86,7 +86,10 @@ function buildForest(
         ancestors.add(file.path);
         visited.add(file.path);
 
-        let icon = app.metadataCache.getFileCache(file)?.frontmatter?.icon ?? null;
+        let icon = app.metadataCache.getFileCache(file)?.frontmatter?.icon
+            ?.replace(/^Li/, '')
+            .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+            .toLowerCase() ?? null;
 
         const children = (childrenByParent.get(file.path) ?? [])
             .filter((child) => !ancestors.has(child.path))
