@@ -76,7 +76,7 @@
 				class="note-tree-chevron note-tree-icon"
 				class:is-expanded={expanded}
 				aria-hidden="true"
-				onclick={toggle}
+				onclick={handleToggleClick}
 				use:icon
 			></span>
 		{:else}
