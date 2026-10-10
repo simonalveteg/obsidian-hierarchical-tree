@@ -14,10 +14,6 @@ export default class NoteHierarchy extends Plugin {
             name: 'Open Note Tree View',
             callback: () => this.activateView(),
         });
-
-        this.addRibbonIcon('folder-tree', 'Open Note Tree', () => {
-            this.activateView();
-        });
     }
 
     onunload() {

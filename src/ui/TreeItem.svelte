@@ -3,20 +3,26 @@
 	import type { TreeNode } from '../tree';
 	import { TreeGroup, nodeKey, nodeLabel, nodeFile } from '../tree';
 	import TreeItem from './TreeItem.svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	let {
 		node,
 		onOpen,
+		onContextMenu,
 		selectedPath,
+		expandedKeys,
 		level,
 	}: {
 		node: TreeNode;
 		onOpen: (file: TFile) => void;
+		onContextMenu: (node: TreeNode, e: MouseEvent) => void;
 		selectedPath: string | null;
+		expandedKeys: SvelteSet<string>;
 		level: number;
 	} = $props();
 
-	let expanded = $state(false);
+	const key = $derived(nodeKey(node));
+	const expanded = $derived(expandedKeys.has(key));
 	const hasChildren = $derived(node.children.length > 0);
 	const childrenCount = $derived(node.children.length || '');
 	const isGroup = $derived(node.item instanceof TreeGroup);
@@ -29,8 +35,13 @@
 		setIcon(el, 'chevron-right');
 	}
 
+	function setExpanded(value: boolean) {
+		if (value) expandedKeys.add(key);
+		else expandedKeys.delete(key);
+	}
+
 	function toggle() {
-		expanded = !expanded;
+		setExpanded(!expanded);
 	}
 
 	function handleToggleClick(e: MouseEvent) {
@@ -44,10 +55,10 @@
 			onClick(nodeFile(node));
 		} else if (e.key === 'ArrowRight' && hasChildren) {
 			e.preventDefault();
-			expanded = true;
+			setExpanded(true);
 		} else if (e.key === 'ArrowLeft') {
 			e.preventDefault();
-			expanded = false;
+			setExpanded(false);
 		}
 	}
 
@@ -55,7 +66,6 @@
 		if (file) onOpen(file);
 		else toggle();
 	};
-
 </script>
 
 <div role="none">
@@ -69,6 +79,11 @@
 		aria-expanded={hasChildren ? expanded : undefined}
 		style:--level={level - 1}
 		onclick={() => onClick(nodeFile(node))}
+		oncontextmenu={(e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			onContextMenu(node, e);
+		}}
 		onkeydown={onKeydown}
 	>
 		{#if hasChildren}
@@ -91,7 +106,9 @@
 			></span>
 		{/if}
 
-		<span class="note-tree-name" class:is-bold={level === 1}>{nodeLabel(node)}</span>
+		<span class="note-tree-name" class:is-bold={level === 1}
+			>{nodeLabel(node)}</span
+		>
 		<span class="note-tree-count" aria-hidden="true"> {childrenCount}</span>
 	</div>
 
@@ -101,7 +118,9 @@
 				<TreeItem
 					node={child}
 					{onOpen}
+					{onContextMenu}
 					{selectedPath}
+                    {expandedKeys}
 					level={level + 1}
 				/>
 			{/each}

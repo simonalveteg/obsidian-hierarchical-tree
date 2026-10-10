@@ -51,6 +51,28 @@ export function getParents(app: App, file: TFile): TFile[] {
     return [...parents.values()];
 }
 
+export function ancestorKeys(roots: TreeNode[], path: string): string[] {
+    const found = new Set<string>();
+    const stack: string[] = [];
+
+    const walk = (node: TreeNode) => {
+        if (nodeFile(node)?.path === path) {
+            stack.forEach((k) => found.add(k));
+        }
+        stack.push(nodeKey(node));
+        node.children.forEach(walk);
+        stack.pop();
+    };
+
+    roots.forEach(walk);
+    return [...found];
+}
+
+export function collectFiles(node: TreeNode): TFile[] {
+    const own = nodeFile(node);
+    return [...(own ? [own] : []), ...node.children.flatMap(collectFiles)];
+}
+
 function buildForest(
     app: App,
     files: TFile[],
