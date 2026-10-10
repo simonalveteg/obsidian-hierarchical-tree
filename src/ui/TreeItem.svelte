@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { setIcon, type TFile } from 'obsidian';
 	import type { TreeNode } from '../tree';
-    import { TreeGroup, nodeKey, nodeLabel, nodeFile } from '../tree';
+	import { TreeGroup, nodeKey, nodeLabel, nodeFile } from '../tree';
 	import TreeItem from './TreeItem.svelte';
 
 	let {
@@ -11,7 +11,7 @@
 		level,
 	}: {
 		node: TreeNode;
-		onOpen: (file: TFile | null) => void;
+		onOpen: (file: TFile) => void;
 		selectedPath: string | null;
 		level: number;
 	} = $props();
@@ -19,23 +19,29 @@
 	let expanded = $state(false);
 	const hasChildren = $derived(node.children.length > 0);
 	const childrenCount = $derived(node.children.length || '');
-    const isGroup = $derived(node.item instanceof TreeGroup);
-	const isSelected = $derived(isGroup ? false : nodeKey(node) === selectedPath);
+	const isGroup = $derived(node.item instanceof TreeGroup);
+	const isSelected = $derived(
+		isGroup ? false : nodeKey(node) === selectedPath,
+	);
 
 	// Svelte action: runs when the element is created.
 	function icon(el: HTMLElement) {
 		setIcon(el, 'chevron-right');
 	}
 
-	function toggle(e: MouseEvent) {
-		e.stopPropagation(); // don't also open the note
+	function toggle() {
 		expanded = !expanded;
+	}
+
+	function handleToggleClick(e: MouseEvent) {
+		e.stopPropagation();
+		toggle();
 	}
 
 	function onKeydown(e: KeyboardEvent) {
 		if (e.key === 'Enter' || e.key === ' ') {
 			e.preventDefault();
-			onOpen(nodeFile(node));
+			onClick(nodeFile(node));
 		} else if (e.key === 'ArrowRight' && hasChildren) {
 			e.preventDefault();
 			expanded = true;
@@ -44,6 +50,12 @@
 			expanded = false;
 		}
 	}
+
+	let onClick: (file: TFile | null) => void = (file) => {
+		if (file) onOpen(file);
+		else toggle();
+	};
+
 </script>
 
 <div role="none">
@@ -56,7 +68,7 @@
 		class:is-selected={isSelected}
 		aria-expanded={hasChildren ? expanded : undefined}
 		style:--level={level - 1}
-		onclick={() => onOpen(nodeFile(node))}
+		onclick={() => onClick(nodeFile(node))}
 		onkeydown={onKeydown}
 	>
 		{#if hasChildren}
@@ -71,9 +83,13 @@
 			<span class="note-tree-chevron note-tree-icon"></span>
 		{/if}
 
-        {#if node.icon}
-            <span class="note-tree-user-icon note-tree-icon" aria-hidden="true" use:setIcon={node.icon}></span>
-        {/if}
+		{#if node.icon}
+			<span
+				class="note-tree-user-icon note-tree-icon"
+				aria-hidden="true"
+				use:setIcon={node.icon}
+			></span>
+		{/if}
 
 		<span class="note-tree-name">{nodeLabel(node)}</span>
 		<span class="note-tree-count" aria-hidden="true"> {childrenCount}</span>
