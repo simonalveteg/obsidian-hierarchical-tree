@@ -1,14 +1,19 @@
 <script lang="ts">
     import { setContext, tick } from 'svelte';
+    import type { TreeNode } from '../core/tree';
     import type { TreeStore } from './store.svelte';
     import TreeItem from './TreeItem.svelte';
     import { TREE_CONTEXT, type TreeContext } from './treeContext';
 
-    let { store, actions } = $props<{
+    let { store, groupId, actions } = $props<{
         store: TreeStore;
+        groupId: string;
         actions: Omit<TreeContext, 'store'>;
     }>();
-    let treeElement: HTMLDivElement;
+    let treeElement = $state<HTMLDivElement>();
+    let root = $derived(
+        store.roots.find((node: TreeNode) => node.key === groupId),
+    );
 
     setContext<() => TreeContext>(TREE_CONTEXT, () => ({ store, ...actions }));
 
@@ -36,8 +41,8 @@
     }
 </script>
 
-<div class="note-tree" role="tree" bind:this={treeElement}>
-    {#each store.roots as node (node.key)}
-        <TreeItem {node} parent={null} level={1} />
-    {/each}
-</div>
+{#if root}
+    <div class="note-tree" role="tree" bind:this={treeElement}>
+        <TreeItem node={root} parent={null} level={1} />
+    </div>
+{/if}

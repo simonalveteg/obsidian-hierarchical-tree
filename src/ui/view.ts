@@ -1,7 +1,13 @@
 import { ItemView, WorkspaceLeaf, TFile, debounce, getAllTags } from 'obsidian';
 import { mount, unmount } from 'svelte';
 import { buildParentIndex, type ParentIndex } from '../core/parents';
-import { buildRoots, type TreeGroup, type TreeNode } from '../core/tree';
+import {
+    buildRoots,
+    orphanGroup,
+    vaultGroup,
+    type TreeGroup,
+    type TreeNode,
+} from '../core/tree';
 import { addChildNote } from '../actions/createNote';
 import { canDrop, tryDrop } from '../actions/reparent';
 import type { NoteHierarchySettings } from '../settings';
@@ -18,7 +24,7 @@ type MountedTree = ReturnType<typeof mount>;
 export class NoteTreeView extends ItemView {
     private readonly store = new TreeStore();
     private readonly groups: TreeGroup[];
-    private component: MountedTree | null = null;
+    private components: MountedTree[] = [];
     private parentIndex: ParentIndex = new Map();
     private signatures = new Map<string, string>();
     private rebuild = debounce(() => this.refreshTrees(), 300, true);
@@ -47,58 +53,54 @@ export class NoteTreeView extends ItemView {
         this.contentEl.empty();
         this.store.selectedPath =
             this.app.workspace.getActiveFile()?.path ?? null;
-        this.component = mount(Tree, {
-            target: this.contentEl,
-            props: {
-                store: this.store,
-                actions: {
-                    onOpen: (file: TFile) => {
-                        void this.app.workspace.getLeaf(false).openFile(file);
-                    },
-                    onContextMenu: (node: TreeNode, event: MouseEvent) => {
-                        showMenu(this.app, node, event, (parent) => {
-                            void addChildNote(
-                                this.app,
-                                parent,
-                                this.settings.parentKey,
-                            ).then((file) =>
-                                this.app.workspace
-                                    .getLeaf(false)
-                                    .openFile(file),
-                            );
-                        });
-                    },
-                    canDrop: (
-                        candidate: TFile,
-                        target: TFile,
-                        parent: TFile | null,
-                        add: boolean,
-                    ) =>
-                        canDrop(
-                            this.parentIndex,
-                            candidate,
-                            target,
-                            parent,
-                            add,
-                        ),
-                    tryDrop: (
-                        candidate: TFile,
-                        target: TFile,
-                        parent: TFile | null,
-                        add: boolean,
-                    ) =>
-                        tryDrop(
-                            this.app,
-                            this.parentIndex,
-                            candidate,
-                            target,
-                            parent,
-                            add,
-                            this.settings.parentKey,
-                        ),
-                },
+        const actions = {
+            onOpen: (file: TFile) => {
+                void this.app.workspace.getLeaf(false).openFile(file);
             },
-        });
+            onContextMenu: (node: TreeNode, event: MouseEvent) => {
+                showMenu(this.app, node, event, (parent) => {
+                    void addChildNote(
+                        this.app,
+                        parent,
+                        this.settings.parentKey,
+                    ).then((file) =>
+                        this.app.workspace.getLeaf(false).openFile(file),
+                    );
+                });
+            },
+            canDrop: (
+                candidate: TFile,
+                target: TFile,
+                parent: TFile | null,
+                add: boolean,
+            ) => canDrop(this.parentIndex, candidate, target, parent, add),
+            tryDrop: (
+                candidate: TFile,
+                target: TFile,
+                parent: TFile | null,
+                add: boolean,
+            ) =>
+                tryDrop(
+                    this.app,
+                    this.parentIndex,
+                    candidate,
+                    target,
+                    parent,
+                    add,
+                    this.settings.parentKey,
+                ),
+        };
+        this.components = [vaultGroup, orphanGroup, ...this.groups].map(
+            (group) =>
+                mount(Tree, {
+                    target: this.contentEl,
+                    props: {
+                        store: this.store,
+                        groupId: `group:${group.id}`,
+                        actions,
+                    },
+                }),
+        );
 
         this.refreshTrees();
         this.registerEvent(
@@ -119,10 +121,10 @@ export class NoteTreeView extends ItemView {
     }
 
     async onClose() {
-        if (this.component) {
-            await unmount(this.component);
-            this.component = null;
-        }
+        await Promise.all(
+            this.components.map((component) => unmount(component)),
+        );
+        this.components = [];
     }
 
     private metadataSignature(file: TFile): string {
