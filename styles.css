@@ -54,6 +54,11 @@
     font-size: var(--font-ui-small);
 }
 
+.note-tree-count {
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+}
+
 .note-tree-row.is-selected {
     background-color: var(--nav-item-background-active, var(--background-modifier-hover));
 }
