@@ -1,14 +1,20 @@
 import { ItemView, WorkspaceLeaf, TFile, debounce, getAllTags } from 'obsidian';
 import { mount, unmount } from 'svelte';
-import { buildRoots, TreeGroup } from '../tree';
-import { TreeStore } from './Store.svelte';
+import { buildRoots, nodeKey, TreeGroup } from '../tree';
+import { SelectionStore, TreeStore } from './Store.svelte';
 import Tree from './Tree.svelte';
+
+interface MountedTree {
+    store: TreeStore;
+    el: HTMLElement;
+    component: ReturnType<typeof mount>;
+}
 
 export const VIEW_TYPE_NOTE_TREE = 'note-tree-view';
 
 export class NoteTreeView extends ItemView {
-    private store = new TreeStore();
-    private component: ReturnType<typeof mount> | null = null;
+    private selection = new SelectionStore();
+    private trees = new Map<string, MountedTree>();
 
     private fleeting = new TreeGroup(
         'fleeting',
@@ -21,23 +27,56 @@ export class NoteTreeView extends ItemView {
     );
     private groups = [this.fleeting]
 
-    private build = () => buildRoots(this.app, this.groups);
-    
-    private rebuild = debounce(
-        () => {
-            this.store.roots = this.build();
-        },
-        300,
-        true,
-    );
+    private refreshTrees() {
+        const nodes = buildRoots(this.app, this.groups);
+        const seen = new Set<string>();
+        const order: HTMLElement[] = [];
+
+        for (const node of nodes) {
+            const key = nodeKey(node);
+            seen.add(key);
+
+            let tree = this.trees.get(key);
+            if (!tree) {
+                const store = new TreeStore(this.selection);
+                const el = this.contentEl.createDiv({ cls: 'note-tree-group' });
+                const component = mount(Tree, {
+                    target: el,
+                    props: {
+                        store,
+                        onOpen: (file: TFile) => {
+                            void this.app.workspace.getLeaf(false).openFile(file);
+                        },
+                    },
+                });
+                tree = { store, el, component };
+                this.trees.set(key, tree);
+            }
+
+            tree.store.roots = [node];
+            order.push(tree.el);
+        }
+
+        for (const [key, tree] of this.trees) {
+            if (seen.has(key)) continue;
+            void unmount(tree.component);
+            tree.el.remove();
+            this.trees.delete(key);
+        }
+
+        // Appending an existing element moves it, so this restores group order.
+        this.contentEl.append(...order);
+    }
+
+    private rebuild = debounce(() => this.refreshTrees(), 300, true);
 
     constructor(leaf: WorkspaceLeaf) {
         super(leaf);
     }
 
     getViewType() {
-        return VIEW_TYPE_NOTE_TREE;
-    }
+    return VIEW_TYPE_NOTE_TREE;
+}
 
     getDisplayText() {
         return 'Note tree';
@@ -49,18 +88,8 @@ export class NoteTreeView extends ItemView {
 
     async onOpen() {
         this.contentEl.empty();
-        this.store.roots = this.build();
-        this.store.selectedPath = this.app.workspace.getActiveFile()?.path ?? null;
-
-        this.component = mount(Tree, {
-            target: this.contentEl,
-            props: {
-                store: this.store,
-                onOpen: (file: TFile) => {
-                    void this.app.workspace.getLeaf(false).openFile(file);
-                },
-            },
-        });
+        this.selection.selectedPath = this.app.workspace.getActiveFile()?.path ?? null;
+        this.rebuild();
 
         const refresh = () => this.rebuild();
         this.registerEvent(this.app.metadataCache.on('changed', refresh));
@@ -68,15 +97,13 @@ export class NoteTreeView extends ItemView {
         this.registerEvent(this.app.vault.on('rename', refresh));
         this.registerEvent(this.app.vault.on('delete', refresh));
         this.registerEvent(this.app.workspace.on('file-open', (file) => {
-            this.store.selectedPath = file?.path ?? null;
+            this.selection.selectedPath = file?.path ?? null;
         }),
         );
     }
 
     async onClose() {
-        if (this.component) {
-            await unmount(this.component);
-            this.component = null;
-        }
+        for (const tree of this.trees.values()) void unmount(tree.component);
+        this.trees.clear();
     }
 }

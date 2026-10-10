@@ -12,6 +12,6 @@
 
 <div class="note-tree" role="tree">
 	{#each store.roots as node (nodeKey(node))}
-		<TreeItem {node} {onOpen} selectedPath={store.selectedPath} level={1} />
+		<TreeItem {node} {onOpen} selectedPath={store.selection.selectedPath} level={1} />
 	{/each}
 </div>
