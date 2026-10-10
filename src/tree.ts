@@ -123,7 +123,7 @@ function iconExists(name: string): boolean {
     return ok;
 }
 
-function frontmatterIcon(app: App, file: TFile): string | null {
+export function frontmatterIcon(app: App, file: TFile): string | null {
     const raw: unknown = app.metadataCache.getFileCache(file)?.frontmatter?.icon;
     if (typeof raw !== 'string') return null;
 

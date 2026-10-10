@@ -3,6 +3,7 @@ import { mount, tick, unmount } from 'svelte';
 import { ancestorKeys, buildRoots, collectFiles, nodeFile, nodeKey, TreeGroup, type TreeNode } from '../tree';
 import { SelectionStore, TreeStore } from './Store.svelte';
 import { canDrop, tryDrop } from '../reparent';
+import { IconModal } from './IconModal';
 import Tree from './Tree.svelte';
 
 interface MountedTree {
@@ -156,7 +157,7 @@ export class NoteTreeView extends ItemView {
 
         if (file) {
             menu.addItem((i) => i.setTitle('Add new note').setIcon('plus').onClick(() => this.addChildNote(file)));
-            menu.addItem((i) => i.setTitle('Manage icon').setIcon('image'));
+            menu.addItem((i) => i.setTitle('Manage icon').setIcon('image').onClick(() => new IconModal(this.app, file).open()));
             menu.addSeparator();
             menu.addItem((i) => i.setTitle('Delete note').setIcon('trash'));
             menu.addItem((i) => i.setTitle('Delete note with children').setIcon('trash'));
