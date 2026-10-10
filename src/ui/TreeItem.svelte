@@ -53,7 +53,10 @@
     }
 
     function onClick() {
-        if (file) onOpen(file);
+        if (file) {
+            store.focusedKey = node.key;
+            onOpen(file);
+        }
         else toggle();
     }
 
