@@ -1,6 +1,6 @@
-import { ItemView, WorkspaceLeaf, TFile, debounce } from 'obsidian';
+import { ItemView, WorkspaceLeaf, TFile, debounce, getAllTags } from 'obsidian';
 import { mount, unmount } from 'svelte';
-import { buildRoots } from '../tree';
+import { buildRoots, TreeGroup } from '../tree';
 import { TreeStore } from './Store.svelte';
 import Tree from './Tree.svelte';
 
@@ -10,9 +10,22 @@ export class NoteTreeView extends ItemView {
     private store = new TreeStore();
     private component: ReturnType<typeof mount> | null = null;
 
+    private fleeting = new TreeGroup(
+        'fleeting',
+        'Fleeting',
+        (file) => {
+            const cache = this.app.metadataCache.getFileCache(file);
+            return cache ? (getAllTags(cache) ?? []).includes('#note/fleeting') : false;
+        },
+        (a, b) => b.stat.mtime - a.stat.mtime,
+    );
+    private groups = [this.fleeting]
+
+    private build = () => buildRoots(this.app, this.groups);
+    
     private rebuild = debounce(
         () => {
-            this.store.roots = buildRoots(this.app, []);
+            this.store.roots = this.build();
         },
         300,
         true,
@@ -31,12 +44,12 @@ export class NoteTreeView extends ItemView {
     }
 
     getIcon() {
-        return 'folder-tree';
+        return 'list-tree';
     }
 
     async onOpen() {
         this.contentEl.empty();
-        this.store.roots = buildRoots(this.app, []);
+        this.store.roots = this.build();
         this.store.selectedPath = this.app.workspace.getActiveFile()?.path ?? null;
 
         this.component = mount(Tree, {
@@ -55,8 +68,8 @@ export class NoteTreeView extends ItemView {
         this.registerEvent(this.app.vault.on('rename', refresh));
         this.registerEvent(this.app.vault.on('delete', refresh));
         this.registerEvent(this.app.workspace.on('file-open', (file) => {
-                this.store.selectedPath = file?.path ?? null;
-            }),
+            this.store.selectedPath = file?.path ?? null;
+        }),
         );
     }
 

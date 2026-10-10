@@ -4,15 +4,13 @@ export class TreeGroup {
     constructor(
         public readonly id: string,
         public readonly label: string,
-    ) {}
+        public readonly filter: (file: TFile) => boolean = () => true,
+        public readonly compare: (a: TFile, b: TFile) => number = compareFiles,
+    ) { }
 }
 
+export const vaultGroup = new TreeGroup('vault', 'Vault');
 export const orphanGroup = new TreeGroup('orphans', 'Orphans');
-
-export interface CustomTree {
-    group: TreeGroup;
-    build: (app: App) => TreeNode[];
-}
 
 export interface TreeNode {
     item: TFile | TreeGroup;
@@ -51,31 +49,21 @@ export function getParents(app: App, file: TFile): TFile[] {
     return [...parents.values()];
 }
 
-export function buildRoots(app: App, custom: CustomTree[]): TreeNode[] {
-    const { nodes, orphans } = buildTree(app);
-
-    const roots = [...nodes];
-
-    for (const { group, build } of custom) {
-        roots.push({ item: group, children: build(app) });
-    }
-
-    if (orphans.length > 0) {
-        roots.push({ item: orphanGroup, children: orphans });
-    }
-
-    return roots;
-}
-
-export function buildTree(app: App): { nodes: TreeNode[]; orphans: TreeNode[] } {
-    // Sorted once up front, so every child list below is already sorted.
-    const files = app.vault.getMarkdownFiles().sort(compareFiles);
+function buildForest(
+    app: App,
+    files: TFile[],
+    compare: (a: TFile, b: TFile) => number,
+    splitOrphans: boolean,
+): { nodes: TreeNode[]; orphans: TreeNode[] } {
+    const sorted = [...files].sort(compare);
+    const included = new Set(sorted.map((f) => f.path));
 
     const childrenByParent = new Map<string, TFile[]>();
     const roots: TFile[] = [];
 
-    for (const file of files) {
-        const parents = getParents(app, file);
+    for (const file of sorted) {
+        // Parents excluded by the filter are ignored, so the file becomes a root here.
+        const parents = getParents(app, file).filter((p) => included.has(p.path));
 
         if (parents.length === 0) {
             roots.push(file);
@@ -84,16 +72,13 @@ export function buildTree(app: App): { nodes: TreeNode[]; orphans: TreeNode[] } 
 
         for (const parent of parents) {
             const siblings = childrenByParent.get(parent.path);
-            if (siblings) {
-                siblings.push(file);
-            } else {
-                childrenByParent.set(parent.path, [file]);
-            }
+            if (siblings) siblings.push(file);
+            else childrenByParent.set(parent.path, [file]);
         }
     }
 
-    const ancestors = new Set<string>(); // current path from root, for cycle protection
-    const visited = new Set<string>();   // everything placed anywhere in the tree
+    const ancestors = new Set<string>();
+    const visited = new Set<string>();
 
     const buildNode = (file: TFile): TreeNode => {
         ancestors.add(file.path);
@@ -101,7 +86,7 @@ export function buildTree(app: App): { nodes: TreeNode[]; orphans: TreeNode[] } 
 
         const children = (childrenByParent.get(file.path) ?? [])
             .filter((child) => !ancestors.has(child.path))
-            .map((child) => buildNode(child));
+            .map(buildNode);
 
         ancestors.delete(file.path);
         return { item: file, children };
@@ -112,17 +97,31 @@ export function buildTree(app: App): { nodes: TreeNode[]; orphans: TreeNode[] } 
 
     for (const file of roots) {
         const node = buildNode(file);
-        (node.children.length === 0 ? orphans : nodes).push(node);
+        (splitOrphans && node.children.length === 0 ? orphans : nodes).push(node);
     }
 
     // Notes only reachable through cycles have no root: promote them.
-    for (const file of files) {
-        if (!visited.has(file.path)) {
-            nodes.push(buildNode(file));
-        }
+    for (const file of sorted) {
+        if (!visited.has(file.path)) nodes.push(buildNode(file));
     }
 
     return { nodes, orphans };
+}
+
+export function buildRoots(app: App, custom: TreeGroup[] = []): TreeNode[] {
+    const all = app.vault.getMarkdownFiles();
+    const roots: TreeNode[] = [];
+
+    const main = buildForest(app, all, vaultGroup.compare, true);
+    if (main.nodes.length > 0) roots.push({ item: vaultGroup, children: main.nodes });
+    if (main.orphans.length > 0) roots.push({ item: orphanGroup, children: main.orphans });
+
+    for (const group of custom) {
+        const { nodes } = buildForest(app, all.filter(group.filter), group.compare, false);
+        if (nodes.length > 0) roots.push({ item: group, children: nodes });
+    }
+
+    return roots;
 }
 
 /** Debug helper. Do not JSON.stringify the tree: TFile.parent is circular. */
