@@ -15,6 +15,7 @@ import { createGroups } from '../groups';
 import { TreeStore } from './store.svelte';
 import { showMenu } from './menu';
 import { frontmatterIcon } from './icons';
+import { createTreeToolbar } from './toolbar.svelte';
 import Tree from './Tree.svelte';
 
 export const VIEW_TYPE_NOTE_TREE = 'note-tree-view';
@@ -53,6 +54,8 @@ export class NoteTreeView extends ItemView {
         this.contentEl.empty();
         this.store.selectedPath =
             this.app.workspace.getActiveFile()?.path ?? null;
+        createTreeToolbar(this.contentEl, this.store);
+        const treeContainer = this.contentEl.createDiv({ cls: 'note-tree-container' });
         const actions = {
             onOpen: (file: TFile) => {
                 void this.app.workspace.getLeaf(false).openFile(file);
@@ -90,16 +93,15 @@ export class NoteTreeView extends ItemView {
                     this.settings.parentKey,
                 ),
         };
-        this.components = [vaultGroup, orphanGroup, ...this.groups].map(
-            (group) =>
-                mount(Tree, {
-                    target: this.contentEl,
-                    props: {
-                        store: this.store,
-                        groupId: `group:${group.id}`,
-                        actions,
-                    },
-                }),
+        this.components = [vaultGroup, orphanGroup, ...this.groups].map((group) =>
+            mount(Tree, {
+                target: treeContainer,
+                props: {
+                    store: this.store,
+                    groupId: `group:${group.id}`,
+                    actions,
+                },
+            }),
         );
 
         this.refreshTrees();
