@@ -2,7 +2,7 @@ import { setIcon, type App } from 'obsidian';
 import type { TreeNode } from '../core/tree';
 import type { TreeStore } from './store.svelte';
 import { addChildNote } from '../actions/createNote';
-import { type SortControls, showSortMenu } from './sortmenu';
+import { type SortControls, showSortMenu } from './menu';
 
 function expandAll(nodes: TreeNode[], expanded: Set<string>): void {
     for (const node of nodes) {

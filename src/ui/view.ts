@@ -7,10 +7,9 @@ import { canDrop, tryDrop } from '../actions/reparent';
 import type { NoteHierarchySettings } from '../settings';
 import { createGroups } from '../core/groups';
 import { TreeStore } from './store.svelte';
-import { showMenu } from './menu';
+import { showMenu, type SortControls } from './menu';
 import { frontmatterIcon } from './icons';
 import { createTreeToolbar } from './toolbar.svelte';
-import { type SortControls } from './sortmenu';
 import { type SortId } from '../core/sorting';
 import Tree from './Tree.svelte';
 
@@ -101,15 +100,17 @@ export class NoteTreeView extends ItemView {
                 void this.app.workspace.getLeaf(false).openFile(file);
             },
             onContextMenu: (node: TreeNode, event: MouseEvent) => {
-                showMenu(this.app, node, event, (parent) => {
-                    void addChildNote(
-                        this.app,
-                        parent,
-                        this.settings.parentKey,
-                    ).then((file) =>
-                        this.app.workspace.getLeaf(false).openFile(file),
-                    );
-                });
+                showMenu(
+                    this.app,
+                    node,
+                    event,
+                    (parent) => {
+                        void addChildNote(this.app, parent, this.settings.parentKey).then(
+                            (file) => this.app.workspace.getLeaf(false).openFile(file),
+                        );
+                    },
+                    this.sortControls,
+                );
             },
             canDrop: (
                 candidate: TFile,
