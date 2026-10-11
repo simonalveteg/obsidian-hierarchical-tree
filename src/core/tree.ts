@@ -35,7 +35,7 @@ export const orphanGroup = new TreeGroup(
 );
 
 function compareFiles(a: TFile, b: TFile): number {
-    return a.basename.localeCompare(b.basename, undefined, { numeric: true });
+    return b.stat.mtime - a.stat.mtime;
 }
 
 export function nodeLabel(node: TreeNode): string {
