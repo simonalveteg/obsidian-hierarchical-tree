@@ -6,17 +6,20 @@ export function showMenu(
     app: App,
     node: TreeNode,
     event: MouseEvent,
-    addChild: (parent: TFile) => void,
+    addChild: (parent: TFile | null) => void,
 ): void {
     const menu = new Menu();
     const file = nodeFile(node);
-    if (file) {
+
+    if (file || (node.kind === 'group' && node.group.id === 'vault')) {
         menu.addItem((item) =>
             item
                 .setTitle('Add new note')
                 .setIcon('plus')
                 .onClick(() => addChild(file)),
         );
+    }
+    if (file) {
         menu.addItem((item) =>
             item
                 .setTitle('Manage icon')

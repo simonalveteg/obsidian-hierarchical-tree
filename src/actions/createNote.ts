@@ -3,10 +3,10 @@ import { linkToFile } from '../core/links';
 
 export async function addChildNote(
     app: App,
-    parent: TFile,
+    parent: TFile | null,
     parentKey = 'up',
 ): Promise<TFile> {
-    const folder = parent.parent?.path ?? '';
+    const folder = parent?.parent?.path ?? '';
     let name = 'New Note';
     let suffix = 1;
     let path = folder ? `${folder}/${name}.md` : `${name}.md`;
@@ -14,9 +14,9 @@ export async function addChildNote(
         name = `New Note ${suffix++}`;
         path = folder ? `${folder}/${name}.md` : `${name}.md`;
     }
-    const parentLink = linkToFile(app, parent, path);
+    const data = parent ? `---\n${parentKey}: [${JSON.stringify(linkToFile(app, parent, path))}]\n---\n` : '';
     return app.vault.create(
         path,
-        `---\n${parentKey}: [${JSON.stringify(parentLink)}]\n---\n`,
+        data,
     );
 }
