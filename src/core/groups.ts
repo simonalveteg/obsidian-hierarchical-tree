@@ -1,4 +1,4 @@
-import { getAllTags, type TFile } from 'obsidian';
+import { App, getAllTags, type TFile } from 'obsidian';
 import { TreeGroup, type GroupSet } from './tree';
 import { getComparator } from './sorting';
 import type { CustomGroupSettings, NoteHierarchySettings } from '../settings';
@@ -25,12 +25,14 @@ function createTagGroup(
     );
 }
 
-export function createGroups(settings: NoteHierarchySettings): GroupSet {
+export function createGroups(
+    app: App,
+    settings: NoteHierarchySettings): GroupSet {
     const { defaultSort, builtinGroups } = settings;
     return {
         vault: new TreeGroup(
             'vault',
-            'Vault',
+            app.vault.getName(),
             'vault',
             undefined,
             getComparator(builtinGroups.vault.sort ?? defaultSort),

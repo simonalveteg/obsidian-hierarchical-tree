@@ -31,7 +31,7 @@ export class NoteTreeView extends ItemView {
         private readonly saveSettings: () => Promise<void>,
     ) {
         super(leaf);
-        this.groups = createGroups(this.settings);
+        this.groups = createGroups(this.app, this.settings);
     }
 
     getViewType() {
@@ -53,7 +53,7 @@ export class NoteTreeView extends ItemView {
     }
 
     private applySortChange() {
-        this.groups = createGroups(this.settings);
+        this.groups = createGroups(this.app, this.settings);
         void this.saveSettings();
         this.refreshTrees();
     }
