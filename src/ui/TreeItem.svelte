@@ -18,9 +18,8 @@
     const expanded = $derived(store.expanded.has(node.key));
     const hasChildren = $derived(node.children.length > 0);
     const childrenCount = $derived(node.children.length || '');
-    const isSelected = $derived(
-        file?.path === store.selectedPath && node.key === store.selectedKey,
-    );
+    const isSelected = $derived(file?.path === store.selectedPath);
+    const isRevealTarget = $derived(node.key === store.selectedKey);
     const tabIndex = $derived(
         store.focusedKey === node.key ||
             (!store.focusedKey && node === store.roots[0])
@@ -55,6 +54,8 @@
     function onClick() {
         if (file) {
             store.focusedKey = node.key;
+            store.selectedPath = file.path;
+            store.selectedKey = node.key;
             onOpen(file);
         } else toggle();
     }
@@ -195,6 +196,7 @@
     <div
         class="note-tree-row"
         class:is-selected={isSelected}
+        class:is-reveal-target={isRevealTarget}
         class:note-tree-drop-target={dragOver === 'move'}
         class:note-tree-drop-target-add={dragOver === 'add'}
         style:--level={level - 1}

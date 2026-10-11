@@ -21,29 +21,33 @@ export class TreeStore {
                     this.focusedKey?.startsWith(`${root.key}/`)) &&
                 this.expanded.has(root.key),
         );
-        function findMatch(
+        function findMatches(
             node: TreeNode,
             ancestors: string[],
-        ): { node: TreeNode; ancestors: string[] } | null {
+        ): { node: TreeNode; ancestors: string[] }[] {
             if (node.kind === 'file' && node.file.path === path) {
-                return { node, ancestors };
+                return [{ node, ancestors }];
             }
+            const matches: { node: TreeNode; ancestors: string[] }[] = [];
             for (const child of node.children) {
-                const match = findMatch(child, [...ancestors, node.key]);
-                if (match) return match;
+                matches.push(...findMatches(child, [...ancestors, node.key]));
             }
-            return null;
+            return matches;
         }
-        let match = focusedRoot ? findMatch(focusedRoot, []) : null;
-        if (!match) {
-            for (const root of this.roots) {
-                match = findMatch(root, []);
-                if (match) break;
-            }
-        }
-        if (match) {
-            this.selectedKey = match.node.key;
-            for (const key of match.ancestors) this.expanded.add(key);
+        const matches = this.roots.flatMap((root) => findMatches(root, []));
+        const focusedMatch = matches.find(
+            (match) =>
+                match.node.key === this.focusedKey &&
+                match.node.kind === 'file' &&
+                match.node.file.path === path,
+        );
+        const focusedMatches = focusedRoot
+            ? findMatches(focusedRoot, [])
+            : [];
+        const match = focusedMatch ?? focusedMatches[0] ?? matches[0];
+        if (match) this.selectedKey = match.node.key;
+        for (const found of matches) {
+            for (const key of found.ancestors) this.expanded.add(key);
         }
         const containsFocus = (node: TreeNode): boolean =>
             node.key === this.focusedKey || node.children.some(containsFocus);

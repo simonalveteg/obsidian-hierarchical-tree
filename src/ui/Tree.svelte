@@ -26,7 +26,7 @@
     async function revealSelected() {
         await tick();
         const row = treeElement?.querySelector<HTMLElement>(
-            '.note-tree-row.is-selected',
+            '.note-tree-row.is-reveal-target',
         );
         const scrollable = treeElement?.parentElement;
         if (!row || !scrollable) return;
