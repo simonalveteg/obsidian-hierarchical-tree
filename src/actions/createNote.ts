@@ -3,7 +3,7 @@ import { linkToFile } from '../core/links';
 
 export async function addChildNote(
     app: App,
-    parent: TFile | null,
+    parent: TFile | null = null,
     parentKey = 'up',
 ): Promise<TFile> {
     const folder = parent?.parent?.path ?? '';

@@ -54,7 +54,7 @@ export class NoteTreeView extends ItemView {
         this.contentEl.empty();
         this.store.selectedPath =
             this.app.workspace.getActiveFile()?.path ?? null;
-        createTreeToolbar(this.contentEl, this.store);
+        createTreeToolbar(this.app, this.contentEl, this.store);
         const treeContainer = this.contentEl.createDiv({ cls: 'note-tree-container' });
         const actions = {
             onOpen: (file: TFile) => {
