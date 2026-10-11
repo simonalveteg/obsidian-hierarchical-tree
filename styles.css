@@ -9,6 +9,7 @@
     align-items: center;
     gap: var(--size-2-2);
     padding: var(--size-4-1) var(--size-4-2);
+    padding-block-end: calc(var(--size-4-1) + var(--size-4-2));
 }
 
 .note-tree-toolbar .clickable-icon[aria-pressed='true'] {
@@ -23,28 +24,52 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: var(--size-4-2);
-}
-
-.note-tree {
+    padding: 0 var(--size-4-2) var(--size-4-2);
 }
 
 .note-tree-row {
+    --row-h: 28px;
+    --row-bg: transparent;
+    position: sticky;
+    top: calc(min(var(--level), 4) * var(--row-h));
+    z-index: calc(100 - var(--level));
+    box-sizing: border-box;
+    height: var(--row-h);
     display: flex;
     align-items: center;
     gap: var(--size-2-2);
-    padding-block: var(--size-4-1);
-    padding-inline-end: var(--size-4-2);
-    padding-inline-start: var(--size-4-2);
+    padding-block: 0;
+    padding-inline: var(--size-4-2);
+    margin-block: 0;
     margin-inline-start: calc(var(--level) * var(--size-4-4));
     border-radius: var(--radius-s);
-    margin-block: var(--size-2-1);
+    background-color: var(--background-secondary);
+    background-image: linear-gradient(var(--row-bg), var(--row-bg));
     cursor: var(--cursor);
     user-select: none;
 }
 
 .note-tree-row:hover {
-    background-color: var(--background-modifier-hover);
+    --row-bg: var(--background-modifier-hover);
+}
+
+.note-tree-row.is-selected {
+    --row-bg: var(
+        --nav-item-background-active,
+        var(--background-modifier-hover)
+    );
+}
+
+.note-tree-row.note-tree-drop-target {
+    --row-bg: var(--background-modifier-hover);
+    outline: 2px solid var(--interactive-accent);
+    outline-offset: -2px;
+}
+
+.note-tree-row.note-tree-drop-target-add {
+    --row-bg: var(--background-modifier-hover);
+    outline: 2px dashed var(--interactive-accent);
+    outline-offset: -2px;
 }
 
 .note-tree-row:focus-visible {
@@ -98,25 +123,6 @@
 .note-tree-count {
     color: var(--text-muted);
     font-size: var(--font-ui-smaller);
-}
-
-.note-tree-row.is-selected {
-    background-color: var(
-        --nav-item-background-active,
-        var(--background-modifier-hover)
-    );
-}
-
-.note-tree-row.note-tree-drop-target {
-    background-color: var(--background-modifier-hover);
-    outline: 2px solid var(--interactive-accent);
-    outline-offset: -2px;
-}
-
-.note-tree-row.note-tree-drop-target-add {
-    background-color: var(--background-modifier-hover);
-    outline: 2px dashed var(--interactive-accent);
-    outline-offset: -2px;
 }
 
 .note-tree-icon-modal {
