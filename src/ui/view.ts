@@ -105,8 +105,12 @@ export class NoteTreeView extends ItemView {
                     node,
                     event,
                     (parent) => {
-                        void addChildNote(this.app, parent, this.settings.parentKey).then(
-                            (file) => this.app.workspace.getLeaf(false).openFile(file),
+                        void addChildNote(
+                            this.app,
+                            parent,
+                            this.settings.parentKey,
+                        ).then((file) =>
+                            this.app.workspace.getLeaf(false).openFile(file),
                         );
                     },
                     this.sortControls,

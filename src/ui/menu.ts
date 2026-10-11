@@ -1,7 +1,7 @@
 import { Menu, MenuItem, type App, type TFile } from 'obsidian';
 import { type TreeNode } from '../core/tree';
 import { IconModal } from './IconModal';
-import { SORT_IDS, sortLabel, type SortId } from '../core/sorting';
+import { SORT_IDS, sortLabel, sortGroup, type SortId } from '../core/sorting';
 
 export type SubmenuItem = MenuItem & { setSubmenu(): Menu };
 export interface SortTarget {
@@ -23,7 +23,11 @@ function addSortItems(
     current: SortId | undefined,
     onSelect: (id: SortId) => void,
 ): void {
+    let previous: string | undefined;
     for (const id of SORT_IDS) {
+        const group = sortGroup(id);
+        if (previous !== undefined && group !== previous) menu.addSeparator();
+        previous = group;
         menu.addItem((item) =>
             item
                 .setTitle(sortLabel(id))

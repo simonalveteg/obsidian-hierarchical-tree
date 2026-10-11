@@ -9,45 +9,49 @@ export enum SortType {
     CreatedDesc = 'created-desc',
 }
 
-const SORT_LABELS: Record<SortType, string> = {
-    [SortType.ModifiedDesc]: 'Modified (newest first)',
-    [SortType.ModifiedAsc]: 'Modified (oldest first)',
-    [SortType.NameAsc]: 'Name (A to Z)',
-    [SortType.NameDesc]: 'Name (Z to A)',
-    [SortType.CreatedAsc]: 'Created (oldest first)',
-    [SortType.CreatedDesc]: 'Created (newest first)',
-};
-
 export type FileComparator = (a: TFile, b: TFile) => number;
 
 export const SORT_OPTIONS = {
-    [SortType.ModifiedDesc]: {
-        label: 'Modified (newest first)',
-        compare: (a, b) => b.stat.mtime - a.stat.mtime,
-    },
-    [SortType.ModifiedAsc]: {
-        label: 'Modified (oldest first)',
-        compare: (a, b) => a.stat.mtime - b.stat.mtime,
-    },
     [SortType.NameAsc]: {
-        label: 'Name (A to Z)',
+        label: 'File Name (A to Z)',
+        group: 'name',
         compare: (a, b) =>
             a.basename.localeCompare(b.basename, undefined, { numeric: true }),
     },
     [SortType.NameDesc]: {
-        label: 'Name (Z to A)',
+        label: 'File Name (Z to A)',
+        group: 'name',
         compare: (a, b) =>
             b.basename.localeCompare(a.basename, undefined, { numeric: true }),
     },
+    [SortType.ModifiedAsc]: {
+        label: 'Modified (old to new)',
+        group: 'modified',
+        compare: (a, b) => a.stat.mtime - b.stat.mtime,
+    },
+    [SortType.ModifiedDesc]: {
+        label: 'Modified (new to old)',
+        group: 'modified',
+        compare: (a, b) => b.stat.mtime - a.stat.mtime,
+    },
     [SortType.CreatedAsc]: {
-        label: 'Created (oldest first)',
+        label: 'Created (old to new)',
+        group: 'created',
         compare: (a, b) => a.stat.ctime - b.stat.ctime,
     },
     [SortType.CreatedDesc]: {
-        label: 'Created (newest first)',
+        label: 'Created (new to old)',
+        group: 'created',
         compare: (a, b) => b.stat.ctime - a.stat.ctime,
     },
-} as const satisfies Record<string, { label: string; compare: FileComparator }>;
+} as const satisfies Record<
+    string,
+    { label: string; group: string; compare: FileComparator }
+>;
+
+export function sortGroup(id: SortId): string {
+    return SORT_OPTIONS[id].group;
+}
 
 export type SortId = keyof typeof SORT_OPTIONS;
 
