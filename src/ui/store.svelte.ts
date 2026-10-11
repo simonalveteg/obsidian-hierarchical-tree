@@ -3,6 +3,7 @@ import type { TreeNode } from '../core/tree';
 import { SvelteSet } from 'svelte/reactivity';
 
 export class TreeStore {
+    autoReveal = $state(true);
     roots = $state.raw<TreeNode[]>([]);
     selectedPath = $state<string | null>(null);
     selectedKey = $state<string | null>(null);

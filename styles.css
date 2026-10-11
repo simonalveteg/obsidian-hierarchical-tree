@@ -7,7 +7,11 @@
     align-items: center;
     gap: var(--size-2-2);
     padding: var(--size-4-1) var(--size-4-2);
-    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.note-tree-toolbar .clickable-icon[aria-pressed="true"] {
+    background-color: var(--background-modifier-active-hover);
+    color: var(--text-normal);
 }
 
 .note-tree-container {

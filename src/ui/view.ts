@@ -117,7 +117,7 @@ export class NoteTreeView extends ItemView {
         this.registerEvent(this.app.vault.on('delete', () => this.rebuild()));
         this.registerEvent(
             this.app.workspace.on('file-open', (file) =>
-                this.store.reveal(file?.path ?? ''),
+                this.store.autoReveal && this.store.reveal(file?.path ?? ''),
             ),
         );
     }
