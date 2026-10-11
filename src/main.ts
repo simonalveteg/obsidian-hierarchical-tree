@@ -6,14 +6,30 @@ export default class NoteHierarchy extends Plugin {
     settings: NoteHierarchySettings = DEFAULT_SETTINGS;
 
     async onload() {
-        this.settings = Object.assign(
-            {},
-            DEFAULT_SETTINGS,
-            (await this.loadData()) as Partial<NoteHierarchySettings>,
-        );
+        const saved =
+            (await this.loadData()) as Partial<NoteHierarchySettings> | null;
+        this.settings = {
+            ...DEFAULT_SETTINGS,
+            ...saved,
+            builtinGroups: {
+                vault: {
+                    ...DEFAULT_SETTINGS.builtinGroups.vault,
+                    ...saved?.builtinGroups?.vault,
+                },
+                orphans: {
+                    ...DEFAULT_SETTINGS.builtinGroups.orphans,
+                    ...saved?.builtinGroups?.orphans,
+                },
+            },
+            customGroups: saved?.customGroups ?? DEFAULT_SETTINGS.customGroups,
+        };
+
         this.registerView(
             VIEW_TYPE_NOTE_TREE,
-            (leaf) => new NoteTreeView(leaf, this.settings),
+            (leaf) =>
+                new NoteTreeView(leaf, this.settings, () =>
+                    this.saveData(this.settings),
+                ),
         );
 
         this.addCommand({

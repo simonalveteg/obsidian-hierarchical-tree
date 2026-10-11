@@ -14,9 +14,8 @@ export async function addChildNote(
         name = `New Note ${suffix++}`;
         path = folder ? `${folder}/${name}.md` : `${name}.md`;
     }
-    const data = parent ? `---\n${parentKey}: [${JSON.stringify(linkToFile(app, parent, path))}]\n---\n` : '';
-    return app.vault.create(
-        path,
-        data,
-    );
+    const data = parent
+        ? `---\n${parentKey}: [${JSON.stringify(linkToFile(app, parent, path))}]\n---\n`
+        : '';
+    return app.vault.create(path, data);
 }

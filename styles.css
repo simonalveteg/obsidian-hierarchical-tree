@@ -1,4 +1,4 @@
-.workspace-leaf-content[data-type="note-tree-view"]>.view-content {
+.workspace-leaf-content[data-type='note-tree-view'] > .view-content {
     display: flex;
     flex-direction: column;
     padding: 0;
@@ -11,7 +11,7 @@
     padding: var(--size-4-1) var(--size-4-2);
 }
 
-.note-tree-toolbar .clickable-icon[aria-pressed="true"] {
+.note-tree-toolbar .clickable-icon[aria-pressed='true'] {
     background-color: var(--background-modifier-active-hover);
     color: var(--text-normal);
 }

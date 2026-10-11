@@ -56,8 +56,7 @@
         if (file) {
             store.focusedKey = node.key;
             onOpen(file);
-        }
-        else toggle();
+        } else toggle();
     }
 
     function handleItemClick(event: MouseEvent) {

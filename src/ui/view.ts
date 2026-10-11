@@ -1,21 +1,17 @@
 import { ItemView, WorkspaceLeaf, TFile, debounce, getAllTags } from 'obsidian';
 import { mount, unmount } from 'svelte';
 import { buildParentIndex, type ParentIndex } from '../core/parents';
-import {
-    buildRoots,
-    orphanGroup,
-    vaultGroup,
-    type TreeGroup,
-    type TreeNode,
-} from '../core/tree';
+import { buildRoots, type GroupSet, type TreeNode } from '../core/tree';
 import { addChildNote } from '../actions/createNote';
 import { canDrop, tryDrop } from '../actions/reparent';
 import type { NoteHierarchySettings } from '../settings';
-import { createGroups } from '../groups';
+import { createGroups } from '../core/groups';
 import { TreeStore } from './store.svelte';
 import { showMenu } from './menu';
 import { frontmatterIcon } from './icons';
 import { createTreeToolbar } from './toolbar.svelte';
+import { type SortControls } from './sortmenu';
+import { type SortId } from '../core/sorting';
 import Tree from './Tree.svelte';
 
 export const VIEW_TYPE_NOTE_TREE = 'note-tree-view';
@@ -24,7 +20,7 @@ type MountedTree = ReturnType<typeof mount>;
 
 export class NoteTreeView extends ItemView {
     private readonly store = new TreeStore();
-    private readonly groups: TreeGroup[];
+    private groups: GroupSet;
     private components: MountedTree[] = [];
     private parentIndex: ParentIndex = new Map();
     private signatures = new Map<string, string>();
@@ -33,9 +29,10 @@ export class NoteTreeView extends ItemView {
     constructor(
         leaf: WorkspaceLeaf,
         private readonly settings: NoteHierarchySettings,
+        private readonly saveSettings: () => Promise<void>,
     ) {
         super(leaf);
-        this.groups = createGroups(this.app, settings);
+        this.groups = createGroups(this.settings);
     }
 
     getViewType() {
@@ -50,12 +47,55 @@ export class NoteTreeView extends ItemView {
         return 'list-tree';
     }
 
+    private groupSettings(id: string): { sort?: SortId } | undefined {
+        if (id === 'vault' || id === 'orphans')
+            return this.settings.builtinGroups[id];
+        return this.settings.customGroups.find((g) => g.id === id);
+    }
+
+    private applySortChange() {
+        this.groups = createGroups(this.settings);
+        void this.saveSettings();
+        this.refreshTrees();
+    }
+
+    private readonly sortControls: SortControls = {
+        getDefault: () => this.settings.defaultSort,
+        targets: () =>
+            [this.groups.vault, this.groups.orphans, ...this.groups.custom].map(
+                (g) => ({
+                    id: g.id,
+                    label: g.label,
+                    icon: g.icon,
+                    current: this.groupSettings(g.id)?.sort,
+                }),
+            ),
+        setDefault: (id) => {
+            this.settings.defaultSort = id;
+            this.applySortChange();
+        },
+        setOverride: (groupId, id) => {
+            const group = this.groupSettings(groupId);
+            if (!group) return;
+            if (id === undefined) delete group.sort;
+            else group.sort = id;
+            this.applySortChange();
+        },
+    };
+
     async onOpen() {
         this.contentEl.empty();
         this.store.selectedPath =
             this.app.workspace.getActiveFile()?.path ?? null;
-        createTreeToolbar(this.app, this.contentEl, this.store);
-        const treeContainer = this.contentEl.createDiv({ cls: 'note-tree-container' });
+        createTreeToolbar(
+            this.app,
+            this.contentEl,
+            this.store,
+            this.sortControls,
+        );
+        const treeContainer = this.contentEl.createDiv({
+            cls: 'note-tree-container',
+        });
         const actions = {
             onOpen: (file: TFile) => {
                 void this.app.workspace.getLeaf(false).openFile(file);
@@ -93,7 +133,11 @@ export class NoteTreeView extends ItemView {
                     this.settings.parentKey,
                 ),
         };
-        this.components = [vaultGroup, orphanGroup, ...this.groups].map((group) =>
+        this.components = [
+            this.groups.vault,
+            this.groups.orphans,
+            ...this.groups.custom,
+        ].map((group) =>
             mount(Tree, {
                 target: treeContainer,
                 props: {
@@ -116,8 +160,11 @@ export class NoteTreeView extends ItemView {
         this.registerEvent(this.app.vault.on('rename', () => this.rebuild()));
         this.registerEvent(this.app.vault.on('delete', () => this.rebuild()));
         this.registerEvent(
-            this.app.workspace.on('file-open', (file) =>
-                this.store.autoReveal && this.store.reveal(file?.path ?? ''),
+            this.app.workspace.on(
+                'file-open',
+                (file) =>
+                    this.store.autoReveal &&
+                    this.store.reveal(file?.path ?? ''),
             ),
         );
     }
@@ -157,6 +204,7 @@ export class NoteTreeView extends ItemView {
             files.map((file) => [file.path, this.metadataSignature(file)]),
         );
         this.store.roots = buildRoots(
+            this.app,
             files,
             this.parentIndex,
             icons,

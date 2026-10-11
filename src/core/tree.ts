@@ -1,42 +1,40 @@
-import type { TFile } from 'obsidian';
+import type { App, TFile } from 'obsidian';
 import type { ParentIndex } from './parents';
+import { SortType, SORT_OPTIONS } from './sorting';
 
 export class TreeGroup {
     constructor(
         public readonly id: string,
         public readonly label: string,
         public readonly icon: string | null = null,
-        public readonly filter: (file: TFile) => boolean = () => true,
-        public readonly compare: (a: TFile, b: TFile) => number = compareFiles,
-    ) { }
+        public readonly filter: (file: TFile, app: App) => boolean = () => true,
+        public readonly compare: (a: TFile, b: TFile) => number = SORT_OPTIONS[
+            SortType.ModifiedDesc
+        ].compare,
+    ) {}
+}
+
+export interface GroupSet {
+    vault: TreeGroup;
+    orphans: TreeGroup;
+    custom: TreeGroup[];
 }
 
 export type TreeNode =
     | {
-        kind: 'group';
-        key: string;
-        group: TreeGroup;
-        children: TreeNode[];
-        icon: string | null;
-    }
+          kind: 'group';
+          key: string;
+          group: TreeGroup;
+          children: TreeNode[];
+          icon: string | null;
+      }
     | {
-        kind: 'file';
-        key: string;
-        file: TFile;
-        children: TreeNode[];
-        icon: string | null;
-    };
-
-export const vaultGroup = new TreeGroup('vault', 'Vault', 'vault');
-export const orphanGroup = new TreeGroup(
-    'orphans',
-    'Orphans',
-    'circle-dot-dashed',
-);
-
-function compareFiles(a: TFile, b: TFile): number {
-    return b.stat.mtime - a.stat.mtime;
-}
+          kind: 'file';
+          key: string;
+          file: TFile;
+          children: TreeNode[];
+          icon: string | null;
+      };
 
 export function nodeLabel(node: TreeNode): string {
     return node.kind === 'group' ? node.group.label : node.file.basename;
@@ -126,39 +124,43 @@ function buildForest(
 }
 
 export function buildRoots(
+    app: App,
     files: TFile[],
     parentIndex: ParentIndex,
     icons: Map<string, string | null>,
-    custom: TreeGroup[] = [],
+    groups: GroupSet,
 ): TreeNode[] {
+    const { vault, orphans, custom } = groups;
     const roots: TreeNode[] = [];
     const main = buildForest(
         files,
         parentIndex,
-        vaultGroup.compare,
+        vault.compare,
         true,
-        `group:${vaultGroup.id}`,
+        `group:${vault.id}`,
         icons,
     );
+    main.orphans.sort((a, b) => orphans.compare(nodeFile(a)!, nodeFile(b)!));
+
     if (main.nodes.length)
         roots.push({
             kind: 'group',
-            key: `group:${vaultGroup.id}`,
-            group: vaultGroup,
+            key: `group:${vault.id}`,
+            group: vault,
             children: main.nodes,
-            icon: vaultGroup.icon,
+            icon: vault.icon,
         });
     if (main.orphans.length)
         roots.push({
             kind: 'group',
-            key: `group:${orphanGroup.id}`,
-            group: orphanGroup,
+            key: `group:${orphans.id}`,
+            group: orphans,
             children: main.orphans,
-            icon: orphanGroup.icon,
+            icon: orphans.icon,
         });
     for (const group of custom) {
         const result = buildForest(
-            files.filter(group.filter),
+            files.filter((file) => group.filter(file, app)),
             parentIndex,
             group.compare,
             false,

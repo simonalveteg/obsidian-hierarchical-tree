@@ -2,6 +2,7 @@ import { setIcon, type App } from 'obsidian';
 import type { TreeNode } from '../core/tree';
 import type { TreeStore } from './store.svelte';
 import { addChildNote } from '../actions/createNote';
+import { type SortControls, showSortMenu } from './sortmenu';
 
 function expandAll(nodes: TreeNode[], expanded: Set<string>): void {
     for (const node of nodes) {
@@ -11,7 +12,12 @@ function expandAll(nodes: TreeNode[], expanded: Set<string>): void {
     }
 }
 
-function createButton(parent: HTMLElement, label: string, icon: string | null, onClick: (e: MouseEvent) => void): HTMLButtonElement {
+function createButton(
+    parent: HTMLElement,
+    label: string,
+    icon: string | null,
+    onClick: (e: MouseEvent) => void,
+): HTMLButtonElement {
     const button = parent.createEl('button', {
         cls: 'clickable-icon',
         attr: { type: 'button', 'aria-label': label },
@@ -23,18 +29,38 @@ function createButton(parent: HTMLElement, label: string, icon: string | null, o
     return button;
 }
 
-export function createTreeToolbar(app: App, container: HTMLElement, store: TreeStore) {
+export function createTreeToolbar(
+    app: App,
+    container: HTMLElement,
+    store: TreeStore,
+    sort: SortControls,
+) {
     const toolbar = container.createDiv({
         cls: 'note-tree-toolbar',
         attr: { role: 'toolbar' },
     });
 
     createButton(toolbar, 'New note', 'square-pen', () => {
-        void addChildNote(app).then((file) => app.workspace.getLeaf(false).openFile(file));
+        void addChildNote(app).then((file) =>
+            app.workspace.getLeaf(false).openFile(file),
+        );
     });
-    const revealButton = createButton(toolbar, 'Auto-reveal current file', 'gallery-vertical', () => {
-        store.autoReveal = !store.autoReveal;
-    });
+    const sortButton = createButton(
+        toolbar,
+        'Change sort order',
+        'arrow-up-narrow-wide',
+        () => {
+            showSortMenu(sortButton, sort);
+        },
+    );
+    const revealButton = createButton(
+        toolbar,
+        'Auto-reveal current file',
+        'gallery-vertical',
+        () => {
+            store.autoReveal = !store.autoReveal;
+        },
+    );
     const collapseButton = createButton(toolbar, 'Expand all', null, () => {
         if (store.expanded.size > 0) store.expanded.clear();
         else expandAll(store.roots, store.expanded);
@@ -43,10 +69,18 @@ export function createTreeToolbar(app: App, container: HTMLElement, store: TreeS
     const destroy = $effect.root(() => {
         $effect(() => {
             const anyExpanded = store.expanded.size > 0;
-            collapseButton.setAttribute('aria-label', anyExpanded ? 'Collapse all' : 'Expand all');
-            setIcon(collapseButton, anyExpanded ? 'chevrons-down-up' : 'chevrons-up-down');
+            collapseButton.setAttribute(
+                'aria-label',
+                anyExpanded ? 'Collapse all' : 'Expand all',
+            );
+            setIcon(
+                collapseButton,
+                anyExpanded ? 'chevrons-down-up' : 'chevrons-up-down',
+            );
         });
-        $effect(() => { revealButton.setAttribute('aria-pressed', String(store.autoReveal)); });
+        $effect(() => {
+            revealButton.setAttribute('aria-pressed', String(store.autoReveal));
+        });
     });
 
     return { toolbar, destroy };
